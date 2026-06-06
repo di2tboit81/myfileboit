@@ -36,6 +36,63 @@ button{
     margin-top:15px;
     color:#00ff88;
 }
+
+.dashboard{
+display:flex;
+gap:15px;
+margin:20px 0;
+}
+
+.cardStat{
+background:#1a1a1a;
+border:1px solid gold;
+padding:15px;
+border-radius:15px;
+width:220px;
+}
+
+.cardStat h3{
+margin:0;
+color:gold;
+}
+
+.cardStat span{
+font-size:24px;
+font-weight:bold;
+}
+
+#searchBox{
+width:100%;
+padding:12px;
+border-radius:10px;
+border:none;
+margin-bottom:20px;
+}
+
+#fileGrid{
+display:grid;
+grid-template-columns:
+repeat(auto-fill,minmax(250px,1fr));
+gap:15px;
+}
+
+.fileCard{
+background:#1b1b1b;
+border:1px solid #333;
+padding:15px;
+border-radius:15px;
+}
+
+.fileName{
+font-weight:bold;
+margin-bottom:10px;
+word-break:break-word;
+}
+
+.actionBtn{
+margin:3px;
+}
+
 </style>
 </head>
 <body>
@@ -56,6 +113,33 @@ button{
     <div id="status">
         Belum Login
     </div>
+	
+	<hr>
+
+<h2>📁 File Google Drive</h2>
+
+<div id="fileList"></div>
+
+<div class="dashboard">
+
+    <div class="cardStat">
+        <h3>Total File</h3>
+        <span id="totalFiles">0</span>
+    </div>
+
+    <div class="cardStat">
+        <h3>Total Storage</h3>
+        <span id="totalStorage">0 MB</span>
+    </div>
+
+</div>
+
+<input
+type="text"
+id="searchBox"
+placeholder="Cari file...">
+
+<div id="fileGrid"></div>
 
 </main>
 
@@ -82,7 +166,7 @@ document.getElementById("loginBtn").onclick = () => {
 
         client_id: CLIENT_ID,
 
-        scope: "https://www.googleapis.com/auth/drive.file",
+        scope: "https://www.googleapis.com/auth/drive",
 
         callback: (response) => {
 
@@ -90,6 +174,8 @@ document.getElementById("loginBtn").onclick = () => {
 
             document.getElementById("status").textContent =
                 "✅ Login Google Berhasil";
+				
+				loadFiles();
 
             console.log("Access Token:", accessToken);
         }
@@ -103,31 +189,256 @@ document.getElementById("loginBtn").onclick = () => {
    UPLOAD FILE
 ========================== */
 
-document.getElementById("uploadBtn").onclick = async () => {
+async function uploadFile(file){
 
-    if (!accessToken) {
+    const metadata = {
+        name: file.name
+    };
 
-        alert("Login Google terlebih dahulu");
+    const form = new FormData();
 
+    form.append(
+        "metadata",
+        new Blob(
+            [JSON.stringify(metadata)],
+            {type:"application/json"}
+        )
+    );
+
+    form.append("file", file);
+
+    const response = await fetch(
+        "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
+        {
+            method:"POST",
+            headers:{
+                Authorization:"Bearer " + accessToken
+            },
+            body:form
+        }
+    );
+
+    return await response.json();
+}
+
+document.getElementById("uploadBtn").onclick = async ()=>{
+
+    if(!accessToken){
+        alert("Login dulu");
         return;
     }
 
     const file =
         document.getElementById("fileInput").files[0];
 
-    if (!file) {
-
-        alert("Pilih file terlebih dahulu");
-
+    if(!file){
+        alert("Pilih file");
         return;
     }
 
     document.getElementById("status").textContent =
-        "📤 Siap Upload : " + file.name;
+        "Uploading...";
 
-    console.log("File dipilih:", file);
+    const result =
+        await uploadFile(file);
 
+    document.getElementById("status").textContent =
+        "✅ Upload Berhasil : " + result.name;
+
+    loadFiles();
 };
+
+async function loadFiles(){
+
+const res = await fetch(
+"https://www.googleapis.com/drive/v3/files?pageSize=1000&fields=files(id,name,mimeType,size,createdTime)",
+{
+headers:{
+Authorization:"Bearer "+accessToken
+}
+}
+);
+
+const data=await res.json();
+
+window.driveFiles =
+data.files || [];
+
+renderFiles(window.driveFiles);
+
+updateStats(window.driveFiles);
+
+}
+
+function renderFiles(files){
+
+    let html = "";
+
+    files.forEach(file=>{
+
+        html += `
+        <div style="
+            border:1px solid #444;
+            padding:10px;
+            margin:10px 0;
+            border-radius:10px;
+        ">
+            📄 ${file.name}
+        </div>
+        `;
+    });
+
+    document.getElementById("fileList")
+    .innerHTML = html;
+}
+
+function updateStats(files){
+
+let totalSize=0;
+
+files.forEach(f=>{
+
+totalSize += Number(f.size || 0);
+
+});
+
+document.getElementById(
+"totalFiles"
+).textContent = files.length;
+
+document.getElementById(
+"totalStorage"
+).textContent =
+(totalSize/1024/1024)
+.toFixed(2)+" MB";
+
+}
+
+function renderFiles(files){
+
+let html="";
+
+files.forEach(file=>{
+
+const size=
+(Number(file.size||0)/1024/1024)
+.toFixed(2);
+
+html += `
+
+<div class="fileCard">
+
+<div class="fileName">
+${file.name}
+</div>
+
+<div>
+${size} MB
+</div>
+
+<div style="margin-top:10px;">
+
+<button
+class="actionBtn"
+onclick="previewFile('${file.id}','${file.mimeType}')">
+Preview
+</button>
+
+<button
+class="actionBtn"
+onclick="downloadFile('${file.id}')">
+Download
+</button>
+
+<button
+class="actionBtn"
+onclick="deleteFile('${file.id}')">
+Delete
+</button>
+
+</div>
+
+</div>
+
+`;
+
+});
+
+document.getElementById(
+"fileGrid"
+).innerHTML = html;
+
+}
+
+function previewFile(id,mime){
+
+if(
+mime.includes("image") ||
+mime.includes("pdf")
+){
+
+window.open(
+"https://drive.google.com/file/d/"
++id+
+"/view"
+);
+
+}else{
+
+alert(
+"Preview hanya gambar & PDF"
+);
+
+}
+
+}
+
+function downloadFile(id){
+
+window.open(
+"https://drive.google.com/uc?id="+id
+);
+
+}
+
+async function deleteFile(id){
+
+if(!confirm("Hapus file ini?"))
+return;
+
+await fetch(
+"https://www.googleapis.com/drive/v3/files/"+id,
+{
+method:"DELETE",
+headers:{
+Authorization:
+"Bearer "+accessToken
+}
+}
+);
+
+loadFiles();
+
+}
+
+document
+.getElementById("searchBox")
+.addEventListener(
+"keyup",
+function(){
+
+const keyword =
+this.value.toLowerCase();
+
+const result =
+window.driveFiles.filter(f=>
+f.name.toLowerCase()
+.includes(keyword)
+);
+
+renderFiles(result);
+
+});
 
 </script>
 
