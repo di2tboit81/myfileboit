@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Dremania Vault Ultimate Pro</title>
+
+<style>
+body{
+    font-family:Arial,sans-serif;
+    background:#111;
+    color:white;
+    margin:0;
+    padding:0;
+}
+
+header{
+    background:#222;
+    padding:15px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+}
+
+main{
+    padding:20px;
+}
+
+button{
+    padding:10px 15px;
+    cursor:pointer;
+}
+
+#status{
+    margin-top:15px;
+    color:#00ff88;
+}
+</style>
+</head>
+<body>
+
+<header>
+    <h1>Dremania Vault Ultimate Pro</h1>
+    <button id="loginBtn">Login Google</button>
+</header>
+
+<main>
+
+    <input type="file" id="fileInput" multiple>
+
+    <button id="uploadBtn">
+        Upload
+    </button>
+
+    <div id="status">
+        Belum Login
+    </div>
+
+</main>
+
+<!-- GOOGLE LOGIN -->
+<script src="https://accounts.google.com/gsi/client"></script>
+
+<script>
+
+/* ==========================
+   CONFIG
+========================== */
+
+const CLIENT_ID = "39246901145-dsr7dbhfj6v9jtf1l9vvvb541lmqmu6s.apps.googleusercontent.com";
+
+let accessToken = null;
+
+/* ==========================
+   LOGIN GOOGLE
+========================== */
+
+document.getElementById("loginBtn").onclick = () => {
+
+    const client = google.accounts.oauth2.initTokenClient({
+
+        client_id: CLIENT_ID,
+
+        scope: "https://www.googleapis.com/auth/drive.file",
+
+        callback: (response) => {
+
+            accessToken = response.access_token;
+
+            document.getElementById("status").textContent =
+                "✅ Login Google Berhasil";
+
+            console.log("Access Token:", accessToken);
+        }
+
+    });
+
+    client.requestAccessToken();
+};
+
+/* ==========================
+   UPLOAD FILE
+========================== */
+
+document.getElementById("uploadBtn").onclick = async () => {
+
+    if (!accessToken) {
+
+        alert("Login Google terlebih dahulu");
+
+        return;
+    }
+
+    const file =
+        document.getElementById("fileInput").files[0];
+
+    if (!file) {
+
+        alert("Pilih file terlebih dahulu");
+
+        return;
+    }
+
+    document.getElementById("status").textContent =
+        "📤 Siap Upload : " + file.name;
+
+    console.log("File dipilih:", file);
+
+};
+
+</script>
+
+</body>
+</html>
